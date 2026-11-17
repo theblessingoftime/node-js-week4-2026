@@ -31,26 +31,27 @@ const router = express.Router();
 // - 注意：handler 是 async function
 // 作答區
 router.post('/register', async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({
-            status: 'false',
-            message: 'email、password 欄位未填寫'
-        });
-    }
+        if (!email || !password) {
+            return res.status(400).json({
+                status: 'false',
+                message: 'email、password 欄位未填寫'
+            });
+        }
 
-    const existingUser = users.find(user => user.email === email);
-    if (existingUser) {
-        return res.status(400).json({
-            status: 'false',
-            message: 'Email 已存在'
-        });
-    }
+        const existingUser = users.find(user => user.email === email);
+        if (existingUser) {
+            return res.status(400).json({
+                status: 'false',
+                message: 'Email 已存在'
+            });
+        }
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
-        
+
         const newUser = {
             id: nextId++,
             email,
@@ -61,8 +62,14 @@ router.post('/register', async (req, res) => {
         return res.status(201).json({
             status: 'success',
             message: '註冊成功'
-        }); 
-    
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 'false',
+            message: '伺服器發生錯誤'
+        })
+    }
+
 });
 
 
@@ -81,31 +88,39 @@ router.post('/register', async (req, res) => {
 // - 注意：handler 是 async function
 // 作答區
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    const user = users.find(user => user.email === email);
-    if (!user) {
-        return res.status(401).json({
-            status: 'false',
-            message: '帳號或密碼錯誤'
+        const user = users.find(user => user.email === email);
+        if (!user) {
+            return res.status(401).json({
+                status: 'false',
+                message: '帳號或密碼錯誤'
+            });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({
+                status: 'false',
+                message: '帳號或密碼錯誤'
+            });
+        };
+
+        const payload = { id: user.id, email: user.email };
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+        return res.status(200).json({
+            status: 'success',
+            token
         });
+    } catch (error) {
+        return res.status(500).json({
+            status: 'false',
+            message: '伺服器發生錯誤'
+        })
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-        return res.status(401).json({
-            status: 'false',
-            message: '帳號或密碼錯誤'
-        });
-    };
-
-    const payload = { id: user.id, email: user.email };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
-
-    return res.status(200).json({
-        status: 'success',
-        token
-    });
 });
 
 
